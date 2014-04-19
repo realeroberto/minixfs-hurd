@@ -1,0 +1,400 @@
+/* getblk.c - automatically generated from getblk.c.in */
+/* by function-tailoring.sh on Sat Apr 19 15:30:47 UTC 2014 */
+
+#line 1 "getblk.c.in"
+/* File block to disk block mapping routines  -*-C-*-
+
+   NOTE: This file is processed by `function-tailoring.sh' to get
+   `getblk.c'.
+
+   Copyright (C) 1995,96,99,2000 Free Software Foundation, Inc.
+
+   Converted to work under the hurd by Miles Bader <miles@gnu.org>
+
+   Modified for the MINIX file system from the original for the ext2
+   file system by Roberto Reale <rreale@iol.it>.
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License as
+   published by the Free Software Foundation; either version 2, or (at
+   your option) any later version.
+
+   This program is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. */
+
+#include "minixfs.h"
+
+#line 29 "getblk.c.in"
+
+static error_t
+inode_getblk_V1 (struct node *node, int nr, int create, int zero, 
+ block_t boffs, block_t *result)
+{
+  zone_t zone_result;
+
+  minixfs_debug ("looking up disk zone referenced by in-inode pointer %d "
+ "in node %Ld (CREATE flag == %s)", nr, node->cache_id,
+ create ? "true" : "false");
+
+  zone_result = (zone_t) node->dn->info.i_zone_V1[nr];
+
+  if (zone_result)
+    {
+      assert (zone_result >= sblock->s_firstdatazone
+      && zone_result < sblock_info->s_nzones);
+      minixfs_debug ("in-inode pointer at index %d in node %Ld "
+     "references zone %u", nr, node->cache_id,
+     zone_result);
+      goto got_it;
+    }
+
+  if (!create)
+    return EINVAL;
+
+  zone_result = minixfs_new_zone (node, zero);
+  if (!zone_result)
+    return ENOSPC;
+
+  node->dn->info.i_zone_V1[nr] = (uint16_t) zone_result;
+
+  minixfs_debug ("new zone %u allocated and stored into in-inode "
+ "pointer at index %d in node %Ld",
+ zone_result, nr, node->cache_id);
+
+  node->dn_set_ctime = node->dn_set_mtime = 1;
+  node->dn_stat.st_blocks += 1 <<
+    (log2_stat_blocks_per_fs_block + log2_fs_blocks_per_zone);
+  node->dn_stat_dirty = 1;
+
+  if (diskfs_synchronous)
+    diskfs_node_update (node, 1);
+
+ got_it:
+  *result = (zone_result << log2_fs_blocks_per_zone) + boffs;
+  return 0;
+}
+
+static error_t
+zone_getblk_V1 (struct node *node, zone_t zone, int nr, int create,
+int zero, block_t boffs, zone_t *result)
+{
+  zone_t zone_result;
+  char *bh = zptr (zone);
+
+  minixfs_debug ("looking up disk zone referenced by pointer %d "
+ "in the zone of indirection %u (node %Ld, "
+ "CREATE flag == %s)", nr, zone, node->cache_id,
+ create ? "true" : "false");
+
+  zone_result = (zone_t) *(((uint16_t *) bh) + nr);
+
+  if (zone_result)
+    {
+      assert (zone_result >= sblock->s_firstdatazone
+      && zone_result < sblock_info->s_nzones);
+      minixfs_debug ("pointer at index %d in the zone of indirection "
+     "%u (node %Ld) references zone %u",
+     nr, zone, node->cache_id, zone_result);
+      goto got_it;
+    }
+
+  if (!create)
+    return EINVAL;
+
+  zone_result = minixfs_new_zone (node, zero);
+  if (!zone_result)
+    return ENOSPC;
+
+  *(((uint16_t *) bh) + nr) = (uint16_t) zone_result;
+
+  minixfs_debug ("node %Ld: new zone %u allocated and stored into pointer "
+ "at index %d in the zone of indirection %u",
+ node->cache_id, zone_result, nr, zone);
+
+  if (diskfs_synchronous)
+    sync_global_ptr (bh, 1);
+  else
+    record_indir_poke (node, bh);
+
+  node->dn_set_ctime = node->dn_set_mtime = 1;
+  node->dn_stat.st_blocks += 1 <<
+    (log2_stat_blocks_per_fs_block + log2_fs_blocks_per_zone);
+  node->dn_stat_dirty = 1;
+
+ got_it:
+  *result = (zone_result << log2_fs_blocks_per_zone) + boffs;
+  return 0;
+}
+
+static error_t
+minixfs_getblk_V1 (struct node *node, zone_t zone, int boffs,
+   int create, block_t *disk_block)
+{
+  error_t err;
+  block_t indir;
+
+  if (zone < MINIXFS_NDIR_ZONES)
+    return inode_getblk_V1 (node, (int) zone, create, 0, boffs,
+    disk_block);
+
+  zone -= MINIXFS_NDIR_ZONES;
+  if (zone < ADDR_PER_BLOCK)
+    {
+      err = inode_getblk_V1 (node, MINIXFS_IND_ZONE, create, 1, 0,
+     &indir);
+      if (!err)
+err = zone_getblk_V1 (node, indir >> log2_fs_blocks_per_zone,
+      zone, create, 0, boffs, disk_block);
+      return err;
+    }
+
+  zone -= ADDR_PER_BLOCK;
+  if (zone < ADDR_PER_BLOCK * ADDR_PER_BLOCK)
+    {
+      err = inode_getblk_V1 (node, MINIXFS_DIND_ZONE, create, 1, 0,
+     &indir);
+      if (!err)
+err = zone_getblk_V1 (node, indir >> log2_fs_blocks_per_zone,
+      zone / ADDR_PER_BLOCK, create, 1, 0,
+      &indir);
+      if (!err)
+err = zone_getblk_V1 (node, indir >> log2_fs_blocks_per_zone,
+      zone & (ADDR_PER_BLOCK - 1), create, 0,
+      boffs, disk_block);
+      return err;
+    }
+
+  if (! sblock_info->s_has_tind)
+    {
+      /* If we expect to find a block that cannot exist, we are undoubtedly
+ mistaken.  */
+      assert (create);
+
+      return EFBIG; /* XXX */
+    }
+
+  zone -= ADDR_PER_BLOCK * ADDR_PER_BLOCK;
+  err = inode_getblk_V1 (node, MINIXFS_TIND_ZONE, create, 1, 0,
+ &indir);
+  if (!err)
+    err = zone_getblk_V1 (node, indir >> log2_fs_blocks_per_zone,
+  zone / (ADDR_PER_BLOCK * ADDR_PER_BLOCK),
+  create, 1, 0, &indir);
+  if (!err)
+    err = zone_getblk_V1 (node, indir >> log2_fs_blocks_per_zone,
+  ((zone / ADDR_PER_BLOCK)
+   & (ADDR_PER_BLOCK - 1)),
+  create, 1, 0, &indir);
+  if (!err)
+    err = zone_getblk_V1 (node, indir >> log2_fs_blocks_per_zone,
+  zone & (ADDR_PER_BLOCK - 1), create, 0,
+  boffs, disk_block);
+
+  return err;
+}
+
+
+#line 29 "getblk.c.in"
+
+static error_t
+inode_getblk_V2 (struct node *node, int nr, int create, int zero, 
+ block_t boffs, block_t *result)
+{
+  zone_t zone_result;
+
+  minixfs_debug ("looking up disk zone referenced by in-inode pointer %d "
+ "in node %Ld (CREATE flag == %s)", nr, node->cache_id,
+ create ? "true" : "false");
+
+  zone_result = (zone_t) node->dn->info.i_zone_V2[nr];
+
+  if (zone_result)
+    {
+      assert (zone_result >= sblock->s_firstdatazone
+      && zone_result < sblock_info->s_nzones);
+      minixfs_debug ("in-inode pointer at index %d in node %Ld "
+     "references zone %u", nr, node->cache_id,
+     zone_result);
+      goto got_it;
+    }
+
+  if (!create)
+    return EINVAL;
+
+  zone_result = minixfs_new_zone (node, zero);
+  if (!zone_result)
+    return ENOSPC;
+
+  node->dn->info.i_zone_V2[nr] = (uint32_t) zone_result;
+
+  minixfs_debug ("new zone %u allocated and stored into in-inode "
+ "pointer at index %d in node %Ld",
+ zone_result, nr, node->cache_id);
+
+  node->dn_set_ctime = node->dn_set_mtime = 1;
+  node->dn_stat.st_blocks += 1 <<
+    (log2_stat_blocks_per_fs_block + log2_fs_blocks_per_zone);
+  node->dn_stat_dirty = 1;
+
+  if (diskfs_synchronous)
+    diskfs_node_update (node, 1);
+
+ got_it:
+  *result = (zone_result << log2_fs_blocks_per_zone) + boffs;
+  return 0;
+}
+
+static error_t
+zone_getblk_V2 (struct node *node, zone_t zone, int nr, int create,
+int zero, block_t boffs, zone_t *result)
+{
+  zone_t zone_result;
+  char *bh = zptr (zone);
+
+  minixfs_debug ("looking up disk zone referenced by pointer %d "
+ "in the zone of indirection %u (node %Ld, "
+ "CREATE flag == %s)", nr, zone, node->cache_id,
+ create ? "true" : "false");
+
+  zone_result = (zone_t) *(((uint32_t *) bh) + nr);
+
+  if (zone_result)
+    {
+      assert (zone_result >= sblock->s_firstdatazone
+      && zone_result < sblock_info->s_nzones);
+      minixfs_debug ("pointer at index %d in the zone of indirection "
+     "%u (node %Ld) references zone %u",
+     nr, zone, node->cache_id, zone_result);
+      goto got_it;
+    }
+
+  if (!create)
+    return EINVAL;
+
+  zone_result = minixfs_new_zone (node, zero);
+  if (!zone_result)
+    return ENOSPC;
+
+  *(((uint32_t *) bh) + nr) = (uint32_t) zone_result;
+
+  minixfs_debug ("node %Ld: new zone %u allocated and stored into pointer "
+ "at index %d in the zone of indirection %u",
+ node->cache_id, zone_result, nr, zone);
+
+  if (diskfs_synchronous)
+    sync_global_ptr (bh, 1);
+  else
+    record_indir_poke (node, bh);
+
+  node->dn_set_ctime = node->dn_set_mtime = 1;
+  node->dn_stat.st_blocks += 1 <<
+    (log2_stat_blocks_per_fs_block + log2_fs_blocks_per_zone);
+  node->dn_stat_dirty = 1;
+
+ got_it:
+  *result = (zone_result << log2_fs_blocks_per_zone) + boffs;
+  return 0;
+}
+
+static error_t
+minixfs_getblk_V2 (struct node *node, zone_t zone, int boffs,
+   int create, block_t *disk_block)
+{
+  error_t err;
+  block_t indir;
+
+  if (zone < MINIXFS_NDIR_ZONES)
+    return inode_getblk_V2 (node, (int) zone, create, 0, boffs,
+    disk_block);
+
+  zone -= MINIXFS_NDIR_ZONES;
+  if (zone < ADDR_PER_BLOCK)
+    {
+      err = inode_getblk_V2 (node, MINIXFS_IND_ZONE, create, 1, 0,
+     &indir);
+      if (!err)
+err = zone_getblk_V2 (node, indir >> log2_fs_blocks_per_zone,
+      zone, create, 0, boffs, disk_block);
+      return err;
+    }
+
+  zone -= ADDR_PER_BLOCK;
+  if (zone < ADDR_PER_BLOCK * ADDR_PER_BLOCK)
+    {
+      err = inode_getblk_V2 (node, MINIXFS_DIND_ZONE, create, 1, 0,
+     &indir);
+      if (!err)
+err = zone_getblk_V2 (node, indir >> log2_fs_blocks_per_zone,
+      zone / ADDR_PER_BLOCK, create, 1, 0,
+      &indir);
+      if (!err)
+err = zone_getblk_V2 (node, indir >> log2_fs_blocks_per_zone,
+      zone & (ADDR_PER_BLOCK - 1), create, 0,
+      boffs, disk_block);
+      return err;
+    }
+
+  if (! sblock_info->s_has_tind)
+    {
+      /* If we expect to find a block that cannot exist, we are undoubtedly
+ mistaken.  */
+      assert (create);
+
+      return EFBIG; /* XXX */
+    }
+
+  zone -= ADDR_PER_BLOCK * ADDR_PER_BLOCK;
+  err = inode_getblk_V2 (node, MINIXFS_TIND_ZONE, create, 1, 0,
+ &indir);
+  if (!err)
+    err = zone_getblk_V2 (node, indir >> log2_fs_blocks_per_zone,
+  zone / (ADDR_PER_BLOCK * ADDR_PER_BLOCK),
+  create, 1, 0, &indir);
+  if (!err)
+    err = zone_getblk_V2 (node, indir >> log2_fs_blocks_per_zone,
+  ((zone / ADDR_PER_BLOCK)
+   & (ADDR_PER_BLOCK - 1)),
+  create, 1, 0, &indir);
+  if (!err)
+    err = zone_getblk_V2 (node, indir >> log2_fs_blocks_per_zone,
+  zone & (ADDR_PER_BLOCK - 1), create, 0,
+  boffs, disk_block);
+
+  return err;
+}
+
+
+
+/* Returns in DISK_BLOCK the disk block corresponding to BLOCK in NODE.  If
+   there is no such block yet, but CREATE is true, then it is created,
+   otherwise EINVAL is returned.  */
+error_t
+minixfs_getblk (struct node *node, block_t block, int create, 
+		block_t *disk_block)
+{
+  zone_t zone = block >> log2_fs_blocks_per_zone;
+  /* relative offset of our block in its zone */
+  int boffs = block & ((1 << log2_fs_blocks_per_zone) - 1);
+
+  minixfs_debug ("looking up disk block corresponding to block %u "
+		 "in node %Ld (zone %u, block %d) - CREATE flag == %s",
+		 block, node->cache_id, zone, boffs,
+		 create ? "true" : "false");
+
+  if (zone > sblock_info->s_max_addressable_zone)
+    {
+      minixfs_warning ("zone index %u > max", zone);
+      return EIO;
+    }
+
+  if (sblock_info->s_version == MINIX_V1)
+    return minixfs_getblk_V1 (node, zone, boffs, create, disk_block);
+  else
+    return minixfs_getblk_V2 (node, zone, boffs, create, disk_block);
+}

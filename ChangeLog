@@ -1,0 +1,413 @@
+2003-10-13  Roberto Reale  <roberto.reale82@gmail.com>
+
+	* Alpha release 0.03.
+	
+	* Makefile: A few fixes.
+
+2003-10-10  Roberto Reale  <roberto.reale82@gmail.com>
+
+	* msg.c: Don't #define USE_LOG_FILE by default.
+
+2003-10-08  Roberto Reale  <roberto.reale82@gmail.com>
+
+	* super.c (get_hypermetadata): When compiled with debugging
+	support, and debugging is enabled, print some info concerning the
+	format and meta-data of the file system (such as its version, the
+	maximum length allowed for file names, the ratio blocks/zone,
+	whether double and triple indirection are supported, etc.).
+
+	Don't use hard-wired values to compute `sblock_info->s_nindirs';
+	instead, use the size of whatever data type the low-level routines
+	employ for representing zone addresses.
+
+	Should we choke because of an incorrect magic number, let's
+	refrain from printing the list of the *four* correct numbers!
+	
+2003-10-07  Roberto Reale  <roberto.reale82@gmail.com>
+
+	* super.c (get_hypermetadata): Fixed severe (but silly) bug:
+	initialize field `s_ndzones' in `sblock_info' before using macros
+	which rely upon it!
+	
+2003-10-06  Roberto Reale  <roberto.reale82@gmail.com>
+
+	* pager.c [STATS]: Rename struct `minix_pager_stats' -->
+	`minixfs_pager_stats'.
+	Rename instance of struct `minixfs_pager_stats' above from
+	`minixs_pager_stats' to `pager_stats'.
+	(STAT_INC): Fix macro definition.
+	(file_pager_read_page): Add debug info.
+	
+2003-10-05  Roberto Reale  <roberto.reale82@gmail.com>
+
+	* minixfs.h (minix_discard_prealloc): Remove prototype.
+	(zoffs_zone): Remove macro (it was misnamed).
+	(boffs_zone): New macro, renamed from `zoffs_zone' above.
+	(boffs_ptr): Fix block documentation.
+	(zoffs_ptr): Remove macro.
+	(bptr_offs, zptr_offs): Remove macros.
+	(ptr_boffs): New macro.
+	(zptr): Fix macro definition.
+	(bptr_block, zptr_zone): Fix macro definitions.
+	(record_global_poke): Replace a call to `bptr_offs' with a call
+	to `ptr_boffs'.
+	(sync_global_ptr): Ditto.
+	(record_indir_poke): Ditto.
+	
+	* truncate.c.in (minixfs_truncate_FS_VERSION): Replace a call
+	to `zoffs_zone' with a call to `boffs_zone'.
+	
+2003-10-04  Roberto Reale  <roberto.reale82@gmail.com>
+
+	* minixfs.h: Remove declaration of variable `zeroblock', add
+	variable `zerozone'.
+
+	* super.c: s/zeroblock/zerozone/g.
+
+	* truncate.c.in: Likewise.
+
+2003-10-03  Roberto Reale  <roberto.reale82@gmail.com>
+
+	* minixfs.h (struct minix_inode_info): Remove field `i_osync'.
+	Fix declaration of members `i_data.i1' and `i_data.i2'.
+	(struct minix_super_block_info): Change type of `s_nzones' to
+	`zone_t'.  Change type of `s_inodes_per_block' to `unsigned int'.
+	Add field `s_max_addressable_zone'.
+
+	* super.c (get_hypermetadata): Initialize
+	`sblock_info->s_max_addressable_zone'.
+
+	* getblk.c.in (minixfs_getblk): Check if arg `block' is valid,
+	i.e., if the block it refers to is contained in a zone outside
+	addressable range (`sblock_info->s_max_addressable_zone'); if such
+	a condition does not hold, issue a warning and return `EIO'.
+
+2003-10-02  Roberto Reale  <roberto.reale82@gmail.com>
+
+	* dir.c (diskfs_lookup_hurd): Bind variable `amt' to the loop
+	within which it is used.
+	
+	(dirscanblock): Whenever the user-visible length of a directory
+	file isn't a multiple of the size of a block, and it is the last
+	block of such a file which we have to search through, the caller
+	will direct us to scan just a *portion* of that block.  Since the
+	end of that portion corresponds with the end of the file, if we
+	happen to reach it we should not forget to write down how many
+	directory entries we found, as if we had perused the entire block.
+	This function is, perhaps, kind of misnamed.
+
+	Update field `entry_index' in `ds' in a correct manner.
+	Variable `i' renamed as `index'.
+	
+2003-10-01  Roberto Reale  <roberto.reale82@gmail.com>
+
+	* minixfs.h (struct minix_super_block_info): Add member
+	`s_dir_slots_per_fs_block'.
+
+	* super.c (get_hypermetadata): Initialize
+	`sblock_info->s_dir_slots_per_fs_block'.
+	
+	* dir.c (FSBLK_ALIGN): Remove macro.
+	(FSBLK_ROUND): Clean up.
+	(struct dirstat): Add member `entry_index'.
+	(diskfs_direnter_hard): Add debug info.  When `ds->stat' is TAKE,
+	increment the user-visible size of the directory only when needed
+	(that is, iff the slot we are taking hold of is beyond the end of
+	the directory).
+	
+2003-09-28  Roberto Reale  <roberto.reale82@gmail.com>
+
+	* dir.c (diskfs_get_directs): Fix block documentation.
+	Assert that no entry has zero length.
+
+2003-09-25  Roberto Reale  <roberto.reale82@gmail.com>
+
+	* getblk.c.in: Don't #include `string.h' any more.
+	
+2003-09-24  Roberto Reale  <roberto.reale82@gmail.com>
+
+	* getblk.c.in (minix_alloc_zone): Remove.
+
+	(inode_getblk, block_getblk): Rename to ...
+	(inode_getblk_FS_VERSION, zone_getblk_FS_VERSION): ... and
+	surround them with markers __{BEGIN,END}_FS_VERSION_SPECIFIC_CODE.
+	Replace type qualifier `zone_t' with `ZONE_ADDRESS_t.  Apply
+	various small fixes.  Add debug info, too.
+
+	(minixfs_getblk_FS_VERSION): New function, with code from
+	`minixfs_getblk' below.  Surround it with markers as above.
+	(minix_getblk): Remove.
+	(minixfs_getblk): New, renamed from `minix_getblk'.  Call
+	`minixfs_getblk_FS_VERSION' as appropriate to perform the actual
+	work.
+
+	* minixfs.h (minix_getblk): Remove prototype.
+	(minixfs_getblk): New prototype.
+	
+2003-09-21  Roberto Reale  <roberto.reale82@gmail.com>
+
+	* truncate.c.in: Replace type qualifier `zone_t' with
+	`ZONE_ADDRESS_T' (see `function-tailoring.sh') when appropriate.
+	Add debug info.
+	(_free_zone_run_flush): Replace a call to `minix_free_zones' with
+	a call to `minixfs_free_zones'.
+	(free_zone_run_add): Assert that the zone to be freed is not
+	outside the datazone range.
+
+	(trunc_direct, trunc_indirect,
+	trunc_{single,double,triple}_indirect): Rename to ...
+	(trunc_direct_FS_VERSION, trunc_indirect_FS_VERSION,
+	trunc_{single,double,triple}_indirect_FS_VERSION): ... and
+	surround them with markers (__BEGIN_FS_VERSION_SPECIFIC_CODE,
+	__END_FS_VERSION_SPECIFIC_CODE) to tell `function-tailoring.sh' to
+	generate code suitable for each version of the MINIX fs.
+
+	(minixfs_truncate_FS_VERSION): New function; from code taken away
+	from `minixfs_truncate' below.  Surround it with markers
+	__{BEGIN,END}_FS_VERSION_SPECIFIC_CODE as above.
+
+	(minixfs_truncate): Give away code to `minixfs_truncate_FS_VERSION'.
+	Call the appropriate version of `minixfs_truncate_FS_VERSION' (as
+	generated by `function-tailoring.sh') to do the actual work.
+	
+2003-09-20  Roberto Reale  <roberto.reale82@gmail.com>
+
+	* function-tailoring.sh: New file.
+	* getblk.c: Delete.
+	* getblk.c.in: New, renamed from `getblk.c'.
+	* truncate.c: Delete.
+	* truncate.c.in: New, renamed from `truncate.c'.
+
+	* Makefile: Add rules to generate `getblk.c' and `truncate.c' from
+	`getblk.c.in' and `truncate.c.in', by having them processed
+	through `function-tailoring.sh'.
+
+2003-09-15  Roberto Reale  <roberto.reale82@gmail.com>
+
+	* minixfs.h: Define `i_zone_V1' and `i_zone_V2' as shorthand
+	forms for accessing members `i_data.i1' and `i_data.i2' in
+	a `minix_inode_info' object.
+
+	* ialloc.c (diskfs_alloc_node): Change to use the macros above.
+	
+2003-09-12  Roberto Reale  <roberto.reale82@gmail.com>
+
+	* super.c (get_hypermetadata): Remove initialization of
+	`sblock_info->s_isearch' and `sblock_info->s_zsearch'.
+
+	* minixfs.h (minix_super_block_info): Remove useless members
+	`s_isearch' and `s_zsearch'.
+
+2003-09-11  Roberto Reale  <roberto.reale82@gmail.com>
+
+	* ialloc.c (in_range): Remove macro definition.
+	(diskfs_free_node): Clean up, fix debug messages.
+	(minix_alloc_inode): Remove.
+	(minixfs_new_inode): New function, adapted from `minix_new_inode'
+	in linux/fs/minix/bitmap.c.
+	(diskfs_alloc_node): Few trivial fixes.
+	
+2003-09-09  Roberto Reale  <roberto.reale82@gmail.com>
+
+	* zalloc.c (in_range): Remove macro definition.
+	(minix_free_zones): Remove.
+	(minixfs_free_zones): New function, adapted from
+	`minix_free_block' in linux/fs/minix/bitmap.c.
+	(minix_new_zone): Remove.
+	(minixfs_new_zone): New function, adapted from `minix_new_block'
+	in linux/fs/minix/bitmap.c.
+
+	* minixfs.h (minix_new_zone, minix_free_zones): Remove prototypes.
+	(minixfs_new_zone, minixfs_free_zones): New prototypes.
+	
+2003-09-08  Roberto Reale  <roberto.reale82@gmail.com>
+
+	* minixfs.h: Include <stdint.h> at beginning of code, not just
+	before bitmap-handling routines.  For the sake of uniformity,
+	change all `u_int{8,16,32}_t' type qualifiers into their ISO C
+	counterparts `uint*_t'.
+	(trunc_block, round_block, trunc_zone, round_zone): Rewrite.
+	(MINIX_FIRST_INO, MINIX_NDIR_ZONES, MINIX_IND_ZONE,
+	MINIX_DIND_ZONE, MINIX_TIND_ZONE): Remove macro definitions.
+	(MINIXFS_ROOT_INO, MINIXFS_FIRST_INO, MINIXFS_NDIR_ZONES,
+	MINIXFS_IND_ZONE, MINIX_DIND_ZONE, MINIXFS_TIND_ZONE): New macro
+	definitions.
+
+	* dir.c, getblk.c, ialloc.c, minixfs.c, super.c, truncate.c:
+	s/MINIX_\(FIRST\|ROOT\)_INO/MINIXFS_\1_INO/g,
+	s/MINIX_NDIR_ZONES/MINIXFS_NDIR_ZONES/g,
+	s/MINIX_\([DT]\?IND_ZONE\)/MINIXFS_\1/g.
+
+2003-09-05  Roberto Reale  <roberto.reale82@gmail.com>
+
+	* minixfs.h (struct minix_super_block_info): Remove useless
+	member `s_max_inode_symlink'.
+
+	* super.c (get_hypermetadata): Remove some code which operated
+	on `sblock_info->s_max_inode_symlink' above.
+
+2003-09-04  Roberto Reale  <roberto.reale82@gmail.com>
+
+	* super.c (get_hypermetadata): Initialize `log2_block_size' to
+	zero before using it!
+
+2003-09-03  Roberto Reale  <roberto.reale82@gmail.com>
+
+	* minixfs.h <limits.h>: New include (for `CHAR_BIT').
+	(LOG2_BITS_PER_BLOCK): Define using `CHAR_BIT'.
+	
+	* super.c (allocate_mod_map): Compute `mod_map_size' in a more
+	portable fashion (that is, regard a char as being CHAR_BIT bits
+	wide); of course, a mere ``aesthetic'' change.
+	
+2003-08-27  Roberto Reale  <roberto.reale82@gmail.com>
+
+	* ialloc.c (diskfs_free_node, minix_alloc_node): Remember to
+	properly adjust `sblock_info->s_free_inodes_count' upon allocating
+	or freeing inodes.
+
+	* zalloc.c (minix_free_zones, minix_new_zone): Rectify
+	`sblock_info->s_free_zones_count'.
+
+2003-08-25  Roberto Reale  <roberto.reale82@gmail.com>
+
+	* inode.c (diskfs_set_statfs): Make `st->f_blocks' equal to the
+	number of *data* blocks in the file system.  Set `st->f_bfree'
+	according to `sblock_info->s_free_zones_count' and `st->f_ffree'
+	according to `sblock_info->s_free_inodes_count'.  Make
+	`st->f_bavail' always equal to `st->f_bfree' and `st->f_favail'
+	equal to `st->f_ffree'.
+	
+2003-08-24  Roberto Reale  <roberto.reale82@gmail.com>
+
+	* inode.c (diskfs_set_statfs): Don't bother to set `st->f_namelen'
+	(it is the caller itself (in the library) which takes the trouble
+	to do so).
+
+2003-08-23  Roberto Reale  <roberto.reale82@gmail.com>
+
+	* bitmap.c: Replace with `hurd/ext2/bitmap.c'.
+
+	* ialloc.c (minix_count_free_inodes): Delete.
+	(minixfs_count_free_inodes): New, code borrowed from
+	`minix_count_free_inodes' above.  Need not acquire lock
+	around the call to `count_free'.
+
+	* zalloc.c (minix_count_free_zones): Delete.
+	(minixfs_count_free_zones): New, code borrowed from
+	`minix_count_free_zones' above.  Same remark as for its
+	inode-related counterpart: need not acquire lock.
+	
+	* minixfs.h: Add prototypes `minixfs_count_free_inodes' and
+	`minixfs_count_free_zones'.
+	(struct minix_super_block_info): Add fields `s_free_inodes_count'
+	and `s_free_zones_count'.
+
+	* super.c (get_hypermetadata): Fill `s_free_inodes_count' and
+	`s_free_zones_count' members of `minix_super_block_info' object
+	with values obtained from calls to `minixfs_count_free_inodes' and
+	'minixfs_count_free_zones' respectively.
+	
+2003-08-18  Roberto Reale  <roberto.reale82@gmail.com>
+	
+	* minixfs.c: Always set to non-zero global variable
+	`diskfs_shortcut_symlink'.
+
+	* inode.c (write_symlink): Remove because in-inode symlinks are
+	not allowed in a MINIX file system.
+	(read_symlink): Likewise.
+
+2003-08-17  Roberto Reale  <roberto.reale82@gmail.com>
+
+	* inode.c (map_gid8_to_gid16, map_gid16_to_gid8): Remove.
+	(read_node): On reading the GID field from a disk inode (V1), just
+	copy it into the corresponding member of the `stat' structure,
+	without passing it to map_gid8_to_gid16 as we did before.  Change
+	a superfluous `1 << log2_block_size' into `block_size'.
+
+	(check_high_bits, check_gid_high_bits): Remove.
+	(diskfs_validate_owner_change, diskfs_validate_mode_change): These
+	functions are now made to perform by themselves the very trivial
+	calculation which once required a call to `check_high_bits'.
+	(diskfs_validate_group_change): Ditto, but making due allowance
+	for the old version of the file system which only permits a 8-bit
+	value to be stored into the GID field of a disk inode.
+
+	(write_node): Assert that no high bits are turned on in the
+	`st_mode' and `st_uid of a `stat' object, `np->author_tracks_uid'
+	is true and `st->st_author' is in fact a synonym of `st->st_uid'
+	(that is, they are never allowed to differ).  Assert, as well,
+	that at most 16 (8, respectively) bits are turned on in the
+	`st_gid' field when writing a V2 inode (V1 inode).  Just copy
+	`st_mode', `st_uid' and `st_gid' into the corresponding fields a
+	the disk inode, without calling `map_gid8_to_gid16' anymore.
+	
+2003-08-16  Roberto Reale  <roberto.reale82@gmail.com>
+
+	* msg.c (minix_warning, _minix_error, _minix_panic): Remove.
+	(minixfs_warning, _minixfs_error, _minixfs_panic): New.  Renamed
+	from related functions above.
+	
+	* minixfs.h (minix_debug, minix_error, minix_panic): Remove macro
+	definitions.
+	(minixfs_debug, minixfs_error, minixfs_panic): New.  Renamed from
+	related definitions above.
+	(minix_warning): Remove prototype.
+	(minixfs_warning): New prototype, renamed from `minix_warning'
+	above.
+
+	* minixfs.h [MINIXFS_DEBUG]: Rename global variable
+	`minix_debug_flag' to `minixfs_debug_flag'.
+	* minixfs.c: Substitute all references to `minix_debug_flag' above
+	with references to `minixfs_debug_flag'.
+
+	* dir.c, getblk.c, ialloc.c, inode.c, minixfs.c, msg.c, pager.c,
+	pokel.c, storeinfo.c, super.c, truncate.c, zalloc.c: All calls to
+	`minix_{debug,warning,error,panic}' replaced with calls to new
+	functions `minixfs_*'.
+
+2003-08-12  Roberto Reale  <roberto.reale82@gmail.com>
+
+	* hyper.c: Delete.
+	* super.c: New.  Renamed from hyper.c.
+	* Makefile (SRCS): Remove hyper.c, add super.c.
+
+2003-08-07  Roberto Reale  <roberto.reale82@gmail.com>
+
+	* Pre-release 0.02.
+
+	* dir.c: A great many changes were made due to the fact that the
+	size of a MINIX directory has no need to be aligned to a block
+	boundary (as opposed to Ext2).
+	(direntry_len): New function.
+	(diskfs_lookup_hard): The root inode was erroneously believed to
+	be the inode number 2 (instead of MINIX_ROOT_INODE); fix that.
+
+	* getblk.c: Substitute for sblock->s_log_zone_size,
+	log2_fs_blocks_per_zone.
+	(minix_discard_prealloc): Remove.
+	(minix_alloc_zone): Fix a duplicate call to record_indir_poke ().
+	(inode_getblk): Remove unused variable i.
+	(block_getblk): Likewise.
+
+	* ialloc.c (diskfs_alloc_node): No flags in a MINIX inode, so
+	remove the flag-handling code (relics from the Ext2 translator).
+
+	* msg.h [USE_LOG_FILE]: Include `sys/stat.h'.
+	(open_log_file): On calling open (), do specify the mode arg.
+
+	* minixfs.h (struct minix_inode_info): Remove several fields used
+	by the Ext2 code.
+	(struct minix_super_block_info): Declare fields s_dirsize and
+	s_namelen as type `size_t' instead of `int'.
+
+	* NOTE: The code, being still in a most unsettled state, has
+	undergone many other little changes besides those which are
+	mentioned above; yet, it would have required of their author
+	far more diligence than he is endowed with, to have them recorded
+	here apiece; which being a very poor excuse indeed, he submissively
+	begs the reader's pardon.
+
+2003-07-19  Roberto Reale  <roberto.reale82@gmail.com>
+
+	* First pre-release 0.01.
