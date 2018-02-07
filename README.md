@@ -7,9 +7,10 @@ A MinixFS translator for the Hurd operating system.
 
 ### INTRODUCTION
 
-  This is a simple translator for the MINIX file system.  Its code has been
+This is a simple translator for the MINIX file system.  Its code has been
 borrowed from the Ext2 translator and subsequently adapted as needed.  
-  It is still very unstable, yet it will (hopefully) become by degrees more
+
+It is still very unstable, yet it will (hopefully) become by degrees more
 mature and reliable, as I have a lively interest in the project.  There are
 many things to be done: the following is but a brief reminder of (some among)
 the most momentous ones.
@@ -42,12 +43,14 @@ $ make
 ```
 at the prompt, perhaps after having adjusted something in the Makefile, which
 is, by the way, a very clumsy specimen of its species.
-  As to the installation, I would recommend not to do it at all, for the
+
+As to the installation, I would recommend not to do it at all, for the
 translator is still inclined to behave itself in a rather whimsical manner.
 This is, after all, a pre-alpha release and is intended for testing only.
 Hence, the wisest thing to do is of course to experiment with it in a safe
 place.
-  To create a new MINIX file system, you may want to avail yourself of the
+
+To create a new MINIX file system, you may want to avail yourself of the
 `util-linux' package, which can be found at
 
   http://packages.debian.org/util-linux
@@ -56,9 +59,5 @@ place.
 
 ### BUG-REPORTS
 
-  I shall be very glad to receive bug-reports as well as suggestions for
+I shall be very glad to receive bug-reports as well as suggestions for
 improvement.  Please contact me at <roberto.reale82@gmail.com>.
-
-  Roberto Reale
-
--*- Text -*-
