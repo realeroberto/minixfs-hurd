@@ -60,4 +60,4 @@ To create a new MINIX file system, you may want to avail yourself of the
 ### BUG-REPORTS
 
 I shall be very glad to receive bug-reports as well as suggestions for
-improvement.  Please contact me at <roberto.reale82@gmail.com>.
+improvement.  Please contact me at <rober.reale@gmail.com>.
