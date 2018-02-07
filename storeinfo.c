@@ -5,7 +5,7 @@
    Written by Miles Bader <miles@gnu.ai.mit.edu>
 
    This file is quite the same as hurd/ext2fs/storeinfo.c, excepting
-   some trivial modification (Roberto Reale <rreale@iol.it>).
+   some trivial modification (Roberto Reale <rober.reale@gmail.com>).
 
    This program is free software; you can redistribute it and/or
    modify it under the terms of the GNU General Public License as

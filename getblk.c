@@ -1,5 +1,5 @@
 /* getblk.c - automatically generated from getblk.c.in */
-/* by function-tailoring.sh on Sat Apr 19 15:30:47 UTC 2014 */
+/* by function-tailoring.sh on mer  7 feb 2018, 09.43.26, UTC */
 
 #line 1 "getblk.c.in"
 /* File block to disk block mapping routines  -*-C-*-
@@ -12,7 +12,7 @@
    Converted to work under the hurd by Miles Bader <miles@gnu.org>
 
    Modified for the MINIX file system from the original for the ext2
-   file system by Roberto Reale <rreale@iol.it>.
+   file system by Roberto Reale <rober.reale@gmail.com>.
 
    This program is free software; you can redistribute it and/or
    modify it under the terms of the GNU General Public License as

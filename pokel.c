@@ -6,7 +6,7 @@
 
    This file is the same as hurd/ext2fs/pokel.c, excepting two or three
    very trivial changes (actually converting each call to ext2_debug into
-   a call to minixfs_debug) made by Roberto Reale <rreale@iol.it>.
+   a call to minixfs_debug) made by Roberto Reale <rober.reale@gmail.com>.
 
    This file is part of the GNU Hurd.
 

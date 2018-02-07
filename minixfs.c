@@ -5,7 +5,7 @@
    Converted for ext2fs by Miles Bader <miles@gnu.ai.mit.edu>
 
    Modified for the MINIX file system from the original for the ext2
-   file system by Roberto Reale <rreale@iol.it>.
+   file system by Roberto Reale <rober.reale@gmail.com>.
 
    This program is free software; you can redistribute it and/or
    modify it under the terms of the GNU General Public License as
